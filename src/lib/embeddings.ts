@@ -16,15 +16,23 @@ async function geminiEmbed(texts: string[]): Promise<number[][]> {
   }
   
   const genAI = new GoogleGenerativeAI(apiKey);
-  // text-embedding-004 outputs exactly 768 dimensions
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+  // Use gemini-embedding-001 and request 768 dimensions (or manually slice) to match Supabase pgvector schema
+  const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
   
   const results: number[][] = [];
   
   // Gemini embedding API is fast but we process in batches/loops
   for (const text of texts) {
-    const result = await model.embedContent(text);
-    results.push(result.embedding.values);
+    try {
+      const result = await model.embedContent({
+        content: { role: "user", parts: [{ text }] }
+      });
+      // Ensure exactly 768 dimensions
+      results.push(result.embedding.values.slice(0, 768));
+    } catch (err: any) {
+      console.error("Gemini embed error:", err);
+      throw new Error(`Gemini embed error: ${err.message}`);
+    }
   }
   
   return results;
