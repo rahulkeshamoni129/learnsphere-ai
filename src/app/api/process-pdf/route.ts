@@ -17,6 +17,34 @@ interface Chunk {
   page: number;
 }
 
+// Polyfill minimal DOM APIs used by pdf.js when running in Node environments
+if (typeof globalThis !== 'undefined') {
+  // @ts-ignore
+  if (!('DOMMatrix' in globalThis)) {
+    // Minimal no-op DOMMatrix implementation to satisfy pdf.js checks
+    // pdf.js only uses DOMMatrix as a container for numbers when running
+    // in non-browser environments; providing a stub prevents runtime errors.
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    globalThis.DOMMatrix = class DOMMatrix {};
+  }
+  // Provide basic shims for ImageData / Path2D / navigator in case pdf.js expects them
+  // @ts-ignore
+  if (!('ImageData' in globalThis)) {
+    // @ts-ignore
+    globalThis.ImageData = class ImageData { constructor() {} };
+  }
+  // @ts-ignore
+  if (!('Path2D' in globalThis)) {
+    // @ts-ignore
+    globalThis.Path2D = class Path2D { constructor() {} };
+  }
+  if (!('navigator' in globalThis)) {
+    // @ts-ignore
+    globalThis.navigator = { language: 'en-US' };
+  }
+}
+
 // Custom page text extractor helper - resilient to bad PDFs
 async function extractPages(buffer: Buffer): Promise<Chunk[]> {
   let data: { text: string; numpages: number; info: any };
@@ -175,9 +203,12 @@ export async function POST(req: NextRequest) {
 
     // Update status to failed if we have a documentId
     if (documentId) {
+      // Persist detailed error text to help diagnose deployed failures.
+      // We store the error in the `summary` column prefixed with `__ERROR__:` so
+      // it is easy to find and won't be mistaken for a normal summary.
       await supabaseAdmin
         .from('documents')
-        .update({ status: 'failed' })
+        .update({ status: 'failed', summary: `__ERROR__: ${error?.message ?? String(error)}` })
         .eq('id', documentId);
     }
 
