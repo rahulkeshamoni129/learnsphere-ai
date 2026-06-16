@@ -1,4 +1,9 @@
-import { pipeline } from '@xenova/transformers';
+import { pipeline, env } from '@xenova/transformers';
+
+// Configure for Vercel Serverless environment
+env.allowLocalModels = false;
+env.useBrowserCache = false;
+env.cacheDir = '/tmp';
 
 let extractorPromise: any = null;
 
