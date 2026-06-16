@@ -17,8 +17,12 @@ build/
 frontend/dist/
 frontend/.tanstack/
 
-# ── Environment variables (never commit secrets) ──────────
+# ── Environment variables (NEVER commit secrets) ─────────
 .env
+.env.local
+.env.development
+.env.production
+.env.test
 .env.*
 !.env.example
 

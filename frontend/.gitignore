@@ -1,4 +1,4 @@
-# Logs
+# ── Logs ─────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -7,23 +7,30 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-.output
-.vinxi
-.tanstack/**
-.nitro
-*.local
+# ── Dependencies ─────────────────────────────────────────
+node_modules/
 
-# Wrangler / Cloudflare
-.wrangler/
-.dev.vars
+# ── Build output ─────────────────────────────────────────
+dist/
+dist-ssr/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
 
-# Editor directories and files
+# ── Environment variables (NEVER commit secrets) ──────────
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*
+!.env.example
+
+# ── Editor ───────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
