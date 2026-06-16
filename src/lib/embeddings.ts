@@ -1,58 +1,81 @@
 /**
  * Embeddings module
- * Uses @xenova/transformers locally and on Vercel.
- * On Vercel, it uses the WASM backend to avoid native .so library issues.
+ * Uses @xenova/transformers locally (fast, free, no API keys).
+ * Uses Google Gemini (text-embedding-004) on Vercel to avoid native .so library issues.
+ * Both models generate 768-dimensional embeddings, which fits our Supabase vector(768) column perfectly.
  */
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// We must set this before importing transformers to force WASM
-if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-  process.env.TRANSFORMERS_JS_NODE_TYPE = 'web';
+// ──────────────────────────────────────────────────────────────────────────────
+// Production path: Google Gemini API (no native binaries needed, extremely reliable)
+// ──────────────────────────────────────────────────────────────────────────────
+async function geminiEmbed(texts: string[]): Promise<number[][]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is missing. Please add it to Vercel.");
+  }
+  
+  const genAI = new GoogleGenerativeAI(apiKey);
+  // text-embedding-004 outputs exactly 768 dimensions
+  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+  
+  const results: number[][] = [];
+  
+  // Gemini embedding API is fast but we process in batches/loops
+  for (const text of texts) {
+    const result = await model.embedContent(text);
+    results.push(result.embedding.values);
+  }
+  
+  return results;
 }
 
-let extractorPromise: any = null;
+// ──────────────────────────────────────────────────────────────────────────────
+// Development path: local @xenova/transformers (fast, no API key needed)
+// ──────────────────────────────────────────────────────────────────────────────
+let localExtractorPromise: any = null;
 
-async function getExtractor() {
-  if (!extractorPromise) {
+async function getLocalExtractor() {
+  if (!localExtractorPromise) {
     const transformers = await import("@xenova/transformers");
     
-    // Configure for Vercel Serverless environment
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      transformers.env.allowLocalModels = false;
-      transformers.env.useBrowserCache = false;
-      transformers.env.cacheDir = '/tmp';
-      
-      // Force WASM backend instead of Node native bindings
-      if (transformers.env.backends?.onnx) {
-        transformers.env.backends.onnx.wasm.numThreads = 1;
-      }
-    }
+    // We only ever run this locally, but just in case:
+    transformers.env.allowLocalModels = true;
     
-    extractorPromise = transformers.pipeline(
+    localExtractorPromise = transformers.pipeline(
       "feature-extraction",
       "Xenova/bge-base-en-v1.5"
     );
   }
-  return extractorPromise;
+  return localExtractorPromise;
 }
 
-/**
- * Generates an embedding for a single text.
- */
-export async function getEmbedding(text: string): Promise<number[]> {
-  const extractor = await getExtractor();
-  const output = await extractor(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data);
-}
-
-/**
- * Generates embeddings for multiple texts (batched).
- */
-export async function getEmbeddings(texts: string[]): Promise<number[][]> {
-  const extractor = await getExtractor();
+async function localEmbed(texts: string[]): Promise<number[][]> {
+  const extractor = await getLocalExtractor();
   const results: number[][] = [];
   for (const text of texts) {
     const output = await extractor(text, { pooling: "mean", normalize: true });
     results.push(Array.from(output.data));
   }
   return results;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Exported helpers
+// ──────────────────────────────────────────────────────────────────────────────
+const isVercel = Boolean(process.env.VERCEL);
+
+/**
+ * Generates an embedding for a single text.
+ */
+export async function getEmbedding(text: string): Promise<number[]> {
+  const results = await (isVercel ? geminiEmbed([text]) : localEmbed([text]));
+  return results[0];
+}
+
+/**
+ * Generates embeddings for multiple texts (batched).
+ */
+export async function getEmbeddings(texts: string[]): Promise<number[][]> {
+  return isVercel ? geminiEmbed(texts) : localEmbed(texts);
 }
