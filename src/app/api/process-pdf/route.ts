@@ -5,6 +5,10 @@ import { getEmbeddings } from '@/lib/embeddings';
 import { generateText } from 'ai';
 // @ts-ignore - no types for internal path
 import parsePdf from 'pdf-parse/lib/pdf-parse.js';
+// @ts-ignore
+import 'pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js';
+// @ts-ignore
+import 'pdf-parse/lib/pdf.js/v2.0.550/build/pdf.js';
 
 export const runtime = 'nodejs'; // Ensure nodejs runtime for pdf-parse (Buffer support)
 

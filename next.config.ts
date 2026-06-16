@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@xenova/transformers", "pdf-parse"],
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./node_modules/pdf-parse/lib/**/*.js"]
+  },
   async headers() {
     return [
       {
