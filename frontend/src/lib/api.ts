@@ -1,6 +1,6 @@
 export const AI_API_BASE_URL =
   (import.meta.env.VITE_AI_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ||
-  "http://localhost:3000";
+  (import.meta.env.PROD ? "https://learnsphere-ai-nu.vercel.app" : "http://localhost:3000");
 
 export function aiUrl(path: string) {
   return `${AI_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
