@@ -95,9 +95,15 @@ export async function POST(req: NextRequest) {
     documentId = docId;
 
     // 1. Fetch PDF buffer
-    const response = await fetch(fileUrl);
+    let response;
+    try {
+      response = await fetch(fileUrl);
+    } catch (e: any) {
+      throw new Error(`CRITICAL_FETCH_ERROR on fileUrl: ${e.message} | URL: ${fileUrl}`);
+    }
+    
     if (!response.ok) {
-      throw new Error(`Failed to download PDF from URL: ${fileUrl}`);
+      throw new Error(`Failed to download PDF from URL: ${fileUrl} (Status: ${response.status})`);
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -111,8 +117,13 @@ export async function POST(req: NextRequest) {
     // 3. Create chunks
     const chunks = chunkPages(pages);
 
-    // 4. Generate embeddings using local model
-    const embeddings = await getEmbeddings(chunks.map(c => c.text));
+    // 4. Generate embeddings using local model or HF API
+    let embeddings;
+    try {
+      embeddings = await getEmbeddings(chunks.map(c => c.text));
+    } catch (e: any) {
+      throw new Error(`CRITICAL_EMBED_ERROR: ${e.message}`);
+    }
 
     // 5. Insert sections and embeddings into Supabase
     const sectionsToInsert = chunks.map((chunk, index) => ({
