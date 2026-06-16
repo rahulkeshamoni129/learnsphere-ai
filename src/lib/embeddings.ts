@@ -1,47 +1,86 @@
-let extractorPromise: any = null;
+/**
+ * Embeddings module - uses HuggingFace Inference API on Vercel/Production,
+ * and local @xenova/transformers in development (avoids native .so dependency crash on Vercel).
+ */
 
-async function getExtractor() {
-  if (!extractorPromise) {
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      process.env.TRANSFORMERS_JS_NODE_TYPE = 'web';
-    }
-    const transformers = await import('@xenova/transformers');
-    // If running on Vercel, we must use /tmp because the filesystem is read-only
-    // AND we must force the WASM backend because Vercel doesn't support native .so files
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      transformers.env.allowLocalModels = false;
-      transformers.env.useBrowserCache = false;
-      transformers.env.cacheDir = '/tmp';
-      
-      // Force WASM backend instead of Node native bindings
-      if (transformers.env.backends?.onnx) {
-        transformers.env.backends.onnx.wasm.numThreads = 1;
-      }
-    }
-    
-    extractorPromise = transformers.pipeline('feature-extraction', 'Xenova/bge-base-en-v1.5');
+const HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2";
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Production path: HuggingFace Inference API (no native binaries needed)
+// ──────────────────────────────────────────────────────────────────────────────
+async function hfEmbed(texts: string[]): Promise<number[][]> {
+  const hfToken = process.env.HUGGINGFACE_API_KEY;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (hfToken) headers["Authorization"] = `Bearer ${hfToken}`;
+
+  const res = await fetch(HF_API_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ inputs: texts }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`HuggingFace API error (${res.status}): ${errText}`);
   }
-  return extractorPromise;
+
+  const data = await res.json();
+  // HF API returns either number[][] or number[][][] depending on model
+  if (Array.isArray(data[0]?.[0])) {
+    // Shape: [batch][tokens][dims] — take mean pooling manually
+    return (data as number[][][]).map((tokenEmbs) => {
+      const dims = tokenEmbs[0].length;
+      const mean = new Array(dims).fill(0);
+      for (const tok of tokenEmbs) tok.forEach((v, i) => (mean[i] += v));
+      return mean.map((v) => v / tokenEmbs.length);
+    });
+  }
+  // Shape: [batch][dims]
+  return data as number[][];
 }
 
-/**
- * Generates a 768-dimensional embedding for a single text input.
- */
-export async function getEmbedding(text: string): Promise<number[]> {
-  const extractor = await getExtractor();
-  const output = await extractor(text, { pooling: 'mean', normalize: true });
-  return Array.from(output.data);
+// ──────────────────────────────────────────────────────────────────────────────
+// Development path: local @xenova/transformers (fast, no API key needed)
+// ──────────────────────────────────────────────────────────────────────────────
+let localExtractorPromise: any = null;
+
+async function getLocalExtractor() {
+  if (!localExtractorPromise) {
+    const transformers = await import("@xenova/transformers");
+    localExtractorPromise = transformers.pipeline(
+      "feature-extraction",
+      "Xenova/bge-base-en-v1.5"
+    );
+  }
+  return localExtractorPromise;
 }
 
-/**
- * Generates a batch of 768-dimensional embeddings for multiple text inputs.
- */
-export async function getEmbeddings(texts: string[]): Promise<number[][]> {
-  const extractor = await getExtractor();
+async function localEmbed(texts: string[]): Promise<number[][]> {
+  const extractor = await getLocalExtractor();
   const results: number[][] = [];
   for (const text of texts) {
-    const output = await extractor(text, { pooling: 'mean', normalize: true });
+    const output = await extractor(text, { pooling: "mean", normalize: true });
     results.push(Array.from(output.data));
   }
   return results;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Exported helpers
+// ──────────────────────────────────────────────────────────────────────────────
+const isVercel = Boolean(process.env.VERCEL);
+
+/**
+ * Generates an embedding for a single text.
+ */
+export async function getEmbedding(text: string): Promise<number[]> {
+  const results = await (isVercel ? hfEmbed([text]) : localEmbed([text]));
+  return results[0];
+}
+
+/**
+ * Generates embeddings for multiple texts (batched).
+ */
+export async function getEmbeddings(texts: string[]): Promise<number[][]> {
+  return isVercel ? hfEmbed(texts) : localEmbed(texts);
 }

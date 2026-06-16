@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Keep xenova external so Vercel doesn't try to bundle its native binaries.
+  // On Vercel we use HF Inference API instead (see src/lib/embeddings.ts).
   serverExternalPackages: ["@xenova/transformers", "pdf-parse"],
   outputFileTracingIncludes: {
     "/api/**/*": ["./node_modules/pdf-parse/lib/**/*.js"]
