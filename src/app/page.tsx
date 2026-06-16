@@ -18,7 +18,7 @@ export default function Home() {
             LearnSphere AI Backend
           </h1>
           <p className="text-lg text-slate-400 max-w-2xl">
-            High-performance Retrieval-Augmented Generation (RAG) and document processing orchestrator powered by Gemini and Supabase.
+            High-performance Retrieval-Augmented Generation (RAG) and document processing orchestrator powered by Groq and Supabase.
           </p>
         </div>
 
@@ -31,7 +31,7 @@ export default function Home() {
             <ul className="space-y-2.5 text-sm text-slate-400">
               <li className="flex justify-between border-b border-slate-800/50 pb-2">
                 <span>AI Models</span>
-                <span className="font-mono text-blue-400">gemini-2.0-flash / text-embedding-004</span>
+                <span className="font-mono text-blue-400">llama-3.3-70b-versatile / bge-base-en-v1.5</span>
               </li>
               <li className="flex justify-between border-b border-slate-800/50 pb-2">
                 <span>Vector Dimension</span>
@@ -53,7 +53,7 @@ export default function Home() {
             <h3 className="text-lg font-semibold text-white mb-3">Connection Health</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Gemini API Connection</span>
+                <span className="text-sm text-slate-400">Groq API Connection</span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   Active
                 </span>
