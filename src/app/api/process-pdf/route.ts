@@ -5,11 +5,6 @@ import { chatModel } from '@/lib/ai';
 import { getEmbeddings } from '@/lib/embeddings';
 import { generateText } from 'ai';
 
-// Use createRequire to load pdf-parse via CJS resolution
-// We import from the lib directly to skip the test runner in the package index
-const require = createRequire(import.meta.url);
-const parsePdf: (buffer: Buffer, options?: any) => Promise<{ text: string; numpages: number; info: any }> = require('pdf-parse/lib/pdf-parse');
-
 export const runtime = 'nodejs'; // Ensure nodejs runtime for pdf-parse (Buffer support)
 
 interface Chunk {
@@ -20,6 +15,9 @@ interface Chunk {
 // Custom page text extractor helper - resilient to bad PDFs
 async function extractPages(buffer: Buffer): Promise<Chunk[]> {
   let data: { text: string; numpages: number; info: any };
+  
+  const require = createRequire(import.meta.url);
+  const parsePdf: (buffer: Buffer, options?: any) => Promise<{ text: string; numpages: number; info: any }> = require('pdf-parse/lib/pdf-parse');
   
   try {
     // First attempt: standard parse
