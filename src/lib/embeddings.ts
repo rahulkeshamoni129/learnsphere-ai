@@ -2,12 +2,21 @@ let extractorPromise: any = null;
 
 async function getExtractor() {
   if (!extractorPromise) {
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      process.env.TRANSFORMERS_JS_NODE_TYPE = 'web';
+    }
     const transformers = await import('@xenova/transformers');
     // If running on Vercel, we must use /tmp because the filesystem is read-only
+    // AND we must force the WASM backend because Vercel doesn't support native .so files
     if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
       transformers.env.allowLocalModels = false;
       transformers.env.useBrowserCache = false;
       transformers.env.cacheDir = '/tmp';
+      
+      // Force WASM backend instead of Node native bindings
+      if (transformers.env.backends?.onnx) {
+        transformers.env.backends.onnx.wasm.numThreads = 1;
+      }
     }
     
     extractorPromise = transformers.pipeline('feature-extraction', 'Xenova/bge-base-en-v1.5');
